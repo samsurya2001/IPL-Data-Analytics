@@ -1,0 +1,156 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Importing libraries
+
+```{r}
+library("dplyr")
+library("party")
+library("caTools")
+library("rpart")
+library("caret")
+library("randomForest")
+library("e1071")
+```
+
+Reading the datasets
+
+```{r}
+data1 <- read.csv("D:/CSE3505/IPL_Ball_by_Ball_2008_2022.csv",stringsAsFactors=FALSE)
+data2 <- read.csv("D:/CSE3505/IPL_Matches_2008_2022.csv",stringsAsFactors=FALSE)
+head(data1)
+```
+
+Preparing the data
+
+```{r}
+totals <- data1 %>% group_by(ID, innings,BattingTeam) %>% summarise(score=sum(total_run))
+firstinnings <- filter(totals,innings==1)
+firstinnings['target'] <- firstinnings['score']+1
+ipl <- merge(data2,firstinnings,by="ID")
+ipl <- subset(ipl,select=-c(innings,score))
+ipl$result <- ifelse(ipl$WinningTeam == ipl$BattingTeam,"Won","Lost")
+ipl
+```
+
+Imputing missing values by constant text 
+
+```{r}
+ipl$result[is.na(ipl$result)] = "No result"
+ipl$City[is.na(ipl$City)] = "Missing"
+ipl$SuperOver[is.na(ipl$SuperOver)] = "Missing"
+ipl$WinningTeam[is.na(ipl$WinningTeam)] = "Missing"
+ipl$Margin[is.na(ipl$Margin)] = "Missing"
+ipl$method[is.na(ipl$method)] = "No wicket"
+ipl$Player_of_Match[is.na(ipl$Player_of_Match)] = "Missing"
+ipl$result<-factor(ipl$result)
+```
+
+Removing features with more than maximum levels of factors for Random Forest
+
+```{r}
+ipl <- as.data.frame(unclass(ipl),stringsAsFactors = TRUE)
+ipl <- subset(ipl,select=-c(Date,MatchNumber,Margin,Player_of_Match,Team1Players,Team2Players,Umpire1,Umpire2))
+str(ipl)
+```
+Splitting training and testing data
+
+```{r}
+sample_data = sample.split(ipl, SplitRatio = 0.8)
+train_data <- subset(ipl, sample_data == TRUE)
+test_data <- subset(ipl, sample_data == FALSE)
+```
+
+Checking if there are NA values
+
+```{r}
+any(is.na(train_data))
+any(apply(train_data, 2, is.infinite))
+any(apply(train_data, 2, is.nan))
+any(is.character(train_data))
+```
+
+Random Forest Model fitting and plotting
+
+```{r}
+model<- randomForest(result ~ ., train_data,ntree=500)
+plot(model)
+```
+Model details
+
+```{r}
+model
+```
+Using test data for prediction and creating a confusion matrix
+
+```{r}
+y_pred = predict(model, newdata = test_data)
+confusion_mtx = table(test_data$result, y_pred)
+confusion_mtx
+```
+
+Getting all evaluation metrics for Random Forest
+
+```{r}
+y_pred = predict(model, newdata = test_data)
+confusion_mtx = table(test_data$result, y_pred)
+confusionMatrix(confusion_mtx)
+```
+
+Gathering and ranking the most important features in our dataset
+
+```{r}
+importance(model)
+```
+
+Plotting the importance of features in our dataset
+
+```{r}
+varImpPlot(model)
+```
+
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

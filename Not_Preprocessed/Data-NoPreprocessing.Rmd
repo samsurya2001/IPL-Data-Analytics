@@ -1,0 +1,137 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Installing packages
+
+```{r}
+#install.packages("caTools")
+#install.packages("party")
+#install.packages("caret")
+```
+
+
+Importing libraries
+
+```{r}
+library(dplyr)
+library(caTools)
+library(party)
+library(caret)
+```
+
+Importing datasets
+
+Ball by Ball data
+
+```{r}
+data1 <- read.csv("D:/CSE3505/IPL_Ball_by_Ball_2008_2022.csv",stringsAsFactors = TRUE)
+data2 <- read.csv("D:/CSE3505/IPL_Matches_2008_2022.csv" ,stringsAsFactors = TRUE)
+head(data1)
+```
+
+Dimensions
+
+```{r}
+dim(data1)
+```
+
+Structure
+
+```{r}
+str(data1)
+```
+
+Summary
+
+```{r}
+summary(data1)
+```
+
+Matches dataset
+
+```{r}
+head(data2)
+```
+
+Dimensions
+
+```{r}
+dim(data2)
+```
+
+Structure
+
+```{r}
+str(data2)
+```
+
+Summary
+
+```{r}
+summary(data2)
+```
+
+Getting the total scores by grouping balls bowled in each match by the ID and summing the total_run attribute
+
+```{r}
+totals <- data1 %>% group_by(ID, innings,BattingTeam) %>% summarise(score=sum(total_run))
+head(totals)
+```
+
+Filtering to get only first innings score for predicting win and adding 1 to get the target score
+
+```{r}
+firstinnings <- filter(totals,innings==1)
+firstinnings['target'] <- firstinnings['score']+1
+head(firstinnings)
+```
+
+Merging the target with our matches dataset to generate a dataset with a predictor value for prediction using ML algorithms
+
+```{r}
+ipl <- merge(data2,firstinnings,by="ID")
+ipl <- subset(ipl,select=-c(innings,score))
+ipl$result <- ifelse(ipl$WinningTeam == ipl$BattingTeam,"Won","Lost") #Predictor
+iplcopy<-ipl
+head(ipl)
+```
+
+Splitting target as predictor (Dependent (y) variable and other features as Independent (x) variables)
+
+```{r}
+x<-subset(ipl,select=-c(result))
+y<-subset(ipl,select=c(result))
+```
+
+Imputing no result for NA columns in result
+
+```{r}
+ipl$result[is.na(ipl$result)] = "No result"
+
+ipl$result<-factor(ipl$result)
+colSums(is.na(ipl))
+```
+
+Performing 80-20 split of whole dataset to get training and testing data
+
+```{r}
+ipl$result<-factor(ipl$result)
+sample_data = sample.split(ipl, SplitRatio = 0.8)
+train_data <- subset(ipl, sample_data == TRUE)
+test_data <- subset(ipl, sample_data == FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+

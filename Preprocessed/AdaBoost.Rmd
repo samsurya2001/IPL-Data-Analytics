@@ -1,0 +1,251 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Installing packages
+
+```{r}
+#install.packages("caTools")
+#install.packages("party")
+#install.packages("adabag")
+```
+
+
+Importing libraries
+
+```{r}
+library(dplyr)
+library(caTools)
+library(party)
+library(caret)
+library(adabag)
+```
+
+Importing datasets
+
+Ball by Ball data
+
+```{r}
+data1 <- read.csv("D:/CSE3505/IPL_Ball_by_Ball_2008_2022.csv")
+data2 <- read.csv("D:/CSE3505/IPL_Matches_2008_2022.csv")
+head(data1)
+```
+
+Dimensions
+
+```{r}
+dim(data1)
+```
+Structure
+```{r}
+str(data1)
+```
+Summary
+
+```{r}
+summary(data1)
+```
+Matches dataset
+
+```{r}
+head(data2)
+```
+
+Dimensions
+
+```{r}
+dim(data2)
+```
+
+Structure
+
+```{r}
+str(data2)
+```
+
+Summary
+
+```{r}
+summary(data2)
+```
+Getting the total scores by grouping balls bowled in each match by the ID and summing the total_run attribute
+
+```{r}
+totals <- data1 %>% group_by(ID, innings,BattingTeam) %>% summarise(score=sum(total_run))
+head(totals)
+```
+
+Filtering to get only first innings score for predicting win and adding 1 to get the target score
+
+```{r}
+firstinnings <- filter(totals,innings==1)
+firstinnings['target'] <- firstinnings['score']+1
+head(firstinnings)
+```
+
+Merging the target with our matches dataset to generate a dataset with a predictor value for prediction using ML algorithms
+
+```{r}
+ipl <- merge(data2,firstinnings,by="ID")
+ipl <- subset(ipl,select=-c(innings,score))
+ipl$result <- ifelse(ipl$WinningTeam == ipl$BattingTeam,"Won","Lost") #Predictor
+iplcopy<-ipl
+head(ipl)
+```
+
+Imputing missing values by constant text 
+
+```{r}
+ipl$result[is.na(ipl$result)] = "No result"
+ipl$City[is.na(ipl$City)] = "Missing"
+ipl$SuperOver[is.na(ipl$SuperOver)] = "Missing"
+ipl$WinningTeam[is.na(ipl$WinningTeam)] = "Missing"
+ipl$Margin[is.na(ipl$Margin)] = "Missing"
+ipl$method[is.na(ipl$method)] = "No wicket"
+ipl$Player_of_Match[is.na(ipl$Player_of_Match)] = "Missing"
+ipl$result<-factor(ipl$result)
+```
+
+Checking NA values in dataset
+
+```{r}
+colSums(is.na(ipl))
+```
+
+
+Imputing no result for NA columns in result
+
+```{r}
+colSums(is.na(ipl))
+```
+Removing trivial features like Won By, Margin which will give out answer of result of the match and other irrelevent features
+
+```{r}
+ipl <- subset(ipl,select=-c(ID,City,Date,MatchNumber,WinningTeam,WonBy,Margin,method,Umpire1,Umpire2))
+head(ipl)
+```
+
+Label Encoding by making all categorical features as numeric
+
+```{r}
+ipl$Season <- as.numeric(factor(ipl$Season))
+ipl$Team1 <- as.numeric(factor(ipl$Team1))
+ipl$Team2 <- as.numeric(factor(ipl$Team2))
+ipl$Venue <- as.numeric(factor(ipl$Venue))
+ipl$TossWinner <- as.numeric(factor(ipl$TossWinner))
+ipl$TossDecision <- as.numeric(factor(ipl$TossDecision))
+ipl$SuperOver <- as.numeric(factor(ipl$SuperOver))
+ipl$Player_of_Match <- as.numeric(factor(ipl$Player_of_Match))
+ipl$Team1Players <- as.numeric(factor(ipl$Team1Players))
+ipl$Team2Players <- as.numeric(factor(ipl$Team2Players))
+ipl$BattingTeam <- as.numeric(factor(ipl$BattingTeam))
+ipl$result <- as.numeric(factor(ipl$result))
+head(ipl)
+```
+
+Correlation matrix of the features (We can see features like Player of match, Super Over are irrelevent)
+
+```{r}
+corr_mat <- round(cor(ipl),2) 
+corr_mat = as.data.frame(corr_mat)
+head(corr_mat)
+```
+
+Removing uncorrelated features
+
+```{r}
+ipl <- subset(ipl,select=-c(SuperOver,Player_of_Match))
+```
+
+Viewing the dimensionality reduced and label encoded dataset
+
+```{r}
+head(ipl)
+```
+
+Splitting data into training and testing data
+
+```{r}
+ipl$result<-factor(ipl$result)
+sample_data = sample.split(ipl, SplitRatio = 0.8)
+train_data <- subset(ipl, sample_data == TRUE)
+test_data <- subset(ipl, sample_data == FALSE)
+```
+
+AdaBoost model fitting with 50 iterations
+
+```{r}
+model = boosting(result~.,data=train_data,boos = TRUE,mfinal = 50)
+```
+
+Model details
+
+```{r}
+summary(model)
+```
+Predictions using testing data
+
+```{r}
+y_pred = predict(model,test_data)
+```
+
+Using test data for prediction and creating a confusion matrix
+
+```{r}
+cm <- table(test_data$result,y_pred$class)
+cm
+```
+Getting all evaluation metrics for AdaBoost
+
+```{r}
+confusionMatrix(cm)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
